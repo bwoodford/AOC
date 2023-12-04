@@ -1,7 +1,8 @@
 open Base
 open Stdio
+open Re2
 
-let word_value = function
+let number_value = function
 | "one" | "1" -> 1
 | "two" | "2" -> 2
 | "three" | "3" -> 3
@@ -11,63 +12,57 @@ let word_value = function
 | "seven" | "7" -> 7
 | "eight" | "8" -> 8
 | "nine" | "9" -> 9
-| _ -> 0
-  
-let find_all_digits str = 
-  let pattern = Re.compile (Re.str "(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9)" ) in
-  let matches = Re.exec pattern str in
+| _ -> failwith "no match"
+
+let word_values = "one|two|three|four|five|six|seven|eight|nine"
+let number_values = "1|2|3|4|5|6|7|8|9"
+
+let find_all_digits string part2 = 
+  let regexp = Re2.create_exn ("(" ^ number_values ^ (if part2 then "|" ^ word_values else "") ^ ")") in
+  let matches = Re2.find_all_exn regexp string in
   matches
 
-
-let rec find_cali_val chars = 
-  match chars with
-  | [] -> failwith "no digit found"
-  | h :: t -> match h with
-    | '0'..'9' -> h
-    | _ -> find_cali_val t
-
-let get_cali_val string =
-  let l = find_cali_val (String.to_list string) in
-  let r = find_cali_val (String.to_list_rev string) in
-  let s = String.make 1 l ^ String.make 1 r in
-  Int.of_string s
+let get_val string part2 =
+  let matches = find_all_digits part2 string in
+  let l = 
+    match List.nth matches 0 with
+    | Some m -> m
+    | None -> failwith "uhoh"
+  in
+  let r = 
+    match List.nth matches (List.length matches - 1) with
+    | Some m -> m
+    | None -> failwith "uhoh"
+  in
+  (10 * (number_value l)) + (number_value r)
 
 let part1 strings =
   let rec string_loop strings acc = 
     match strings with
     | [] ->  acc
-    | h :: t -> string_loop t (acc + (get_cali_val h))
+    | h :: t -> string_loop t (acc + (get_val false h))
   in
   string_loop strings 0
-
-let get_val string =
-  let matches = find_all_digits string in
-  let l = Re.Group.get matches 0 in
-  let r = Re.Group.get matches (Re.Group.nb_groups matches) in
-  10 * (word_value l) + (word_value r)
 
 let part2 strings = 
   let rec string_loop strings acc = 
     match strings with
     | [] ->  acc
-    | h :: t -> string_loop t (acc + (get_val h))
+    | h :: t -> string_loop t (acc + (get_val true h))
   in
   string_loop strings 0
 
 let solve filename = 
   let content = In_channel.read_all filename in
 
-  (*
   content
   |> String.split_lines
   |> part1 
   |> printf "part1: %d\n";
-  *)
 
   content
   |> String.split_lines
   |> part2
   |> printf "part2: %d\n"
 
-
-let () = solve "example2.txt"
+let () = solve "input.txt"
