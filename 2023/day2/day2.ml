@@ -1,18 +1,27 @@
 open Base
 open Stdio
 
+type colors = {
+  red: int;
+  blue: int;
+  green: int;
+}
+
 let get_number string = 
   let regex = Re.Str.regexp "[0-9]+" in
   let _ = Re.Str.search_forward regex string 0 in
   Int.of_string (Re.Str.matched_string string)
 
 let get_color string =
-  let regex = Re.Str.regexp "\\(red\\|green\\|blue\\)" in
+  let regex = Re.Str.regexp "\(red\|green\|blue\)" in
   let _ = Re.Str.search_forward regex string 0 in
   Re.Str.matched_string string
 
+let split_colors colors = 
+  String.split_on_chars colors ~on:[',']
+
 let valid_game string = 
-  let game_split = String.split_on_chars string ~on:[','] in
+  let game_split = split_colors string in
   let rec game_iteration_loop lst valid = 
     match valid with
     | false -> false
@@ -20,17 +29,38 @@ let valid_game string =
       match lst with
       | [] -> valid
       | h :: t ->
+        let number = get_number h in
         let validation = match get_color h with
-        | "red" -> if (get_number h) <= 12 then true else false
-        | "green" -> if (get_number h) <= 13 then true else false 
-        | "blue" -> if (get_number h) <= 14 then true else false
-        | _ -> failwith "unknown color"
+        | "red" when number <= 12 -> true
+        | "green" when number <= 13 -> true
+        | "blue" when number <= 14 -> true 
+        | _ -> false
         in
         game_iteration_loop t validation
   in
   game_iteration_loop game_split true
 
-let get_answer string =
+
+let get_min_colors string colors = 
+  let game_split = split_colors string in
+  let rec game_iteration_loop lst colors = 
+    match lst with
+    | [] -> colors
+    | h :: t ->
+      let number = get_number h in
+      let color = get_color h in
+      let updated_colors =
+        match color with
+        | "red" when number >= colors.red -> { colors with red = number }
+        | "green" when number >= colors.green -> { colors with green = number }
+        | "blue" when number >= colors.blue -> { colors with blue = number }
+        | _ -> colors
+      in
+      game_iteration_loop t updated_colors
+  in
+  game_iteration_loop game_split colors
+
+let get_answer string part2 =
   let games_break = 
     String.split_on_chars string ~on:[':'; ';'] 
   in
@@ -44,26 +74,44 @@ let get_answer string =
     | Some g -> g
     | None -> failwith "no games"
   in
-  let rec game_loop games valid =
-    match valid with
-    | false -> false
-    | true ->
+
+  if part2 then
+    let rec game_loop games colors =
       match games with
-      | [] -> valid 
+      | [] -> colors 
       | h :: t -> 
-        game_loop t (valid_game h)
-  in
-  if game_loop games true then game_number else 0
+        game_loop t (get_min_colors h colors)
+    in
+    let colors = game_loop games { red = 0; green = 0; blue = 0} in
+    colors.green * colors.blue * colors.red
+
+  else
+    let rec game_loop games valid =
+      match valid with
+      | false -> false
+      | true ->
+        match games with
+        | [] -> valid 
+        | h :: t -> 
+          game_loop t (valid_game h)
+    in
+    if game_loop games true then game_number else 0
 
 let part1 strings = 
   let rec string_loop strings acc = 
     match strings with
     | [] ->  acc
-    | h :: t -> string_loop t (acc + (get_answer h))
+    | h :: t -> string_loop t (acc + (get_answer h false))
   in
   string_loop strings 0
 
-let part2 strings = 1 
+let part2 strings =
+  let rec string_loop strings acc = 
+    match strings with
+    | [] ->  acc
+    | h :: t -> string_loop t (acc + (get_answer h true))
+  in
+  string_loop strings 0
 
 let solve filename = 
   let content = In_channel.read_all filename in
@@ -71,13 +119,11 @@ let solve filename =
   content
   |> String.split_lines
   |> part1 
-  |> printf "part1: %d\n"
+  |> printf "part1: %d\n";
 
-  (*
   content
   |> String.split_lines
   |> part2
   |> printf "part2: %d\n"
-  *)
 
 let () = solve "input.txt"
