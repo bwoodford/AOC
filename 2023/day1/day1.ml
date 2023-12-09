@@ -1,6 +1,6 @@
 open Base
 open Stdio
-open Re2
+open Re
 
 let number_value = function
 | "one" | "1" -> 1
@@ -14,26 +14,21 @@ let number_value = function
 | "nine" | "9" -> 9
 | _ -> failwith "no match"
 
-let word_values = "one|two|three|four|five|six|seven|eight|nine"
-let number_values = "1|2|3|4|5|6|7|8|9"
+let word_values = "one\|two\|three\|four\|five\|six\|seven\|eight\|nine"
+let number_values = "1\|2\|3\|4\|5\|6\|7\|8\|9"
 
-let find_all_digits string part2 = 
-  let regexp = Re2.create_exn ("(" ^ number_values ^ (if part2 then "|" ^ word_values else "") ^ ")") in
-  let matches = Re2.find_all_exn regexp string in
-  matches
+let find_digits string part2 = 
+  let regex = Re.Str.regexp (number_values ^ (if part2 then "\|" ^ word_values else "")) in
+  let _ = Re.Str.search_forward regex string 0 in
+  let first = Re.Str.matched_string string in
+  let _ = Re.Str.search_backward regex string (String.length string) in
+  let last = Re.Str.matched_string string in
+  [first;last]
 
 let get_val string part2 =
-  let matches = find_all_digits part2 string in
-  let l = 
-    match List.nth matches 0 with
-    | Some m -> m
-    | None -> failwith "uhoh"
-  in
-  let r = 
-    match List.nth matches (List.length matches - 1) with
-    | Some m -> m
-    | None -> failwith "uhoh"
-  in
+  let matches = find_digits part2 string in
+  let l = List.nth_exn matches 0 in
+  let r = List.nth_exn matches 1 in
   (10 * (number_value l)) + (number_value r)
 
 let part1 strings =
