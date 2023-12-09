@@ -1,0 +1,4 @@
+(executable
+ (name day2)
+ (libraries base stdio re) 
+ (flags (-w -27)))
