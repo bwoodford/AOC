@@ -58,24 +58,25 @@ let part1 schematic =
   List.map ~f:(fun (num: number) -> num.value) |>
   List.fold_left ~f:(+) ~init:0
 
-let part2 strings = 1 
+let part2 schematic =
+  List.fold_left ~f:(fun acc sym ->
+    match sym.value with
+    | '*' ->
+      let numbers = List.filter ~f:(fun num -> is_adjacent sym num) schematic.numbers in
+      acc + if List.length numbers = 2 then (List.nth_exn numbers 0).value * (List.nth_exn numbers 1).value else 0
+    | _ -> acc
+  ) ~init:0 schematic.symbols
+  
 
 let solve filename = 
-  let content = In_channel.read_lines filename in
-
-  let schematic = 
-    content |>
+  let schematic = In_channel.read_lines filename |>
     List.map ~f:String.to_list |>
     find_numbers_and_symbols
   in
-  let answer = part1 schematic in 
-  printf "part1: %d\n" answer
-  
-  (*
-  content
-  |> String.split_lines
-  |> part2
-  |> printf "part2: %d\n"
-  *)
+  let answer1 = part1 schematic in 
+  printf "part1: %d\n" answer1;
+
+  let answer2 = part2 schematic in 
+  printf "part2: %d\n" answer2
 
 let () = solve "input.txt"
