@@ -50,7 +50,7 @@ let find_numbers_and_symbols input =
     | [] -> { numbers; symbols }
     in
   let schematics = List.mapi ~f:(fun y -> fun row -> numsym row [] 0 y [] []) input in
-  List.fold_left ~f:(fun root schematic -> aggregate_schematics root schematic) ~init:{ symbols=[]; numbers=[] } schematics
+  List.fold_left ~f:(aggregate_schematics) ~init:{ symbols=[]; numbers=[] } schematics
 
 let part1 schematic = 
   schematic.numbers |> 
