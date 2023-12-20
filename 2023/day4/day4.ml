@@ -32,6 +32,22 @@ let rec get_matches theirs ours matches =
       else 
         get_matches t ours matches
 
+let get_key table key =
+  match Hashtbl.find table (Int.to_string key) with
+  | Some(value) -> value
+  | None -> 
+    let value = 1 in
+    Hashtbl.add_exn table ~key:(Int.to_string key) ~data:value;
+    value
+
+let rec disperse_matches table start limit multi = 
+  match start with
+  | s when s > limit -> ()
+  | _ -> 
+    let value = get_key table start in
+    Hashtbl.set table ~key:(Int.to_string start) ~data:(value + multi);
+    disperse_matches table (start + 1) limit multi
+
 let part1 cards =
   let get_total_matches acc card =
     let matches = get_matches card.theirs card.ours 0 in
@@ -42,7 +58,20 @@ let part1 cards =
   in
   List.fold_left ~f:(get_total_matches) ~init:0 cards
 
-let part2 card = 1
+let part2 cards = 
+  let table = Hashtbl.create (module String) ~size:(List.length cards) in
+  let rec loop cards table inc acc = 
+    let inc = inc + 1 in
+    match cards with
+    | [] -> ()
+    | h :: t ->
+      let multi = get_key table inc in
+      let matches = get_matches h.theirs h.ours 0 in
+      disperse_matches table (inc + 1) (inc + matches) multi;
+      loop t table inc acc
+  in
+  loop cards table 0 0;
+  Hashtbl.fold ~f:(fun ~key:k ~data:v acc -> acc + v) ~init:0 table
 
 let solve filename = 
   let card = 
