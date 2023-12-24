@@ -80,10 +80,30 @@ let find_seed_location maps seed acc =
   let location = find_range maps.humidity_location humidity in
   if acc > location then location else acc
 
+let rec iter_seed_range source dest maps acc =
+  match (source,dest) with
+  | (s, d) when s = d -> acc
+  | _ -> 
+    let new_acc = find_seed_location maps source Int.max_value in
+    let source = source + 1 in
+    if new_acc < acc then 
+      iter_seed_range source dest maps new_acc 
+    else 
+      iter_seed_range source dest maps acc
+
+let rec iter_seeds maps seeds acc =
+  match seeds with
+  | [] -> acc
+  | s::r::t -> 
+    let new_acc = iter_seed_range s (s+r-1) maps Int.max_value in
+    if new_acc < acc then iter_seeds maps t new_acc else iter_seeds maps t acc
+  | _ -> failwith "uhoh"
+
 let part1 maps = 
   List.fold_left maps.seeds ~f:(fun acc data -> find_seed_location maps data acc) ~init:Int.max_value
 
-let part2 maps = 1 
+let part2 maps = 
+  iter_seeds maps maps.seeds Int.max_value
 
 let split_on_empty_lines input =
   Re.Str.split (Re.Str.regexp "^\n*$") input
