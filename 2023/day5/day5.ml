@@ -2,77 +2,82 @@ open Base
 open Stdio
 open Re
 
-type maps = {
-  mutable seeds: int list;
-  seed_soil: (int, int) Hashtbl.t;
-  soil_fertilizer: (int, int) Hashtbl.t;
-  fertilizer_water: (int, int) Hashtbl.t;
-  water_light: (int, int) Hashtbl.t;
-  light_temperature: (int, int) Hashtbl.t;
-  temperature_humidity: (int, int) Hashtbl.t;
-  humidity_location: (int, int) Hashtbl.t;
+type map = {
+  min_source: int;
+  max_source: int;
+  diff: int;
 }
 
-let rec source_to_destination table d s r =
-  match r with
-  | 0 -> ()
-  | _ -> 
-    Hashtbl.add_exn table ~key:s ~data:d;
-    source_to_destination table (d+1) (s+1) (r-1)
+type maps = {
+  mutable seeds: int list;
+  mutable seed_soil: map list;
+  mutable soil_fertilizer: map list;
+  mutable fertilizer_water: map list;
+  mutable water_light: map list;
+  mutable light_temperature: map list;
+  mutable temperature_humidity: map list;
+  mutable humidity_location: map list;
+}
 
-let rec fill_table table entries = 
+let rec fill_maps maps entries = 
   match entries with
-  | [] -> ();
+  | [] -> maps;
   | h :: t -> 
     let nums = List.map ~f:(Int.of_string) (Re.Str.split (Re.Str.regexp " ") h) in
-    let () = match nums with
+    match nums with
     | d::s::r::_ -> 
-      source_to_destination table d s r;
+      fill_maps ({ diff=d-s; min_source=s; max_source=s+r } :: maps) t
     | _ -> failwith "wrong number of items"
-    in
-    fill_table table t
 
-let load_map maps input = 
+let load_maps maps input = 
   let split_map = Re.Str.split (Re.Str.regexp " map:\n\|:\n\|: \|\n") input in
   let () = 
     match List.hd_exn split_map with
-    | "seed-to-soil" -> fill_table maps.seed_soil (List.tl_exn split_map)
-    | "soil-to-fertilizer" -> fill_table maps.soil_fertilizer (List.tl_exn split_map)
-    | "fertilizer-to-water" -> fill_table maps.fertilizer_water (List.tl_exn split_map)
-    | "water-to-light" -> fill_table maps.water_light (List.tl_exn split_map)
-    | "light-to-temperature" -> fill_table maps.light_temperature (List.tl_exn split_map)
-    | "temperature-to-humidity" -> fill_table maps.temperature_humidity (List.tl_exn split_map)
-    | "humidity-to-location" -> fill_table maps.humidity_location (List.tl_exn split_map)
+    | "seed-to-soil" -> maps.seed_soil <- fill_maps maps.seed_soil (List.tl_exn split_map)
+    | "soil-to-fertilizer" -> maps.soil_fertilizer <-fill_maps maps.soil_fertilizer (List.tl_exn split_map)
+    | "fertilizer-to-water" -> maps.fertilizer_water <- fill_maps maps.fertilizer_water (List.tl_exn split_map)
+    | "water-to-light" -> maps.water_light <- fill_maps maps.water_light (List.tl_exn split_map)
+    | "light-to-temperature" -> maps.light_temperature <- fill_maps maps.light_temperature (List.tl_exn split_map)
+    | "temperature-to-humidity" -> maps.temperature_humidity <- fill_maps maps.temperature_humidity (List.tl_exn split_map)
+    | "humidity-to-location" -> maps.humidity_location <- fill_maps maps.humidity_location (List.tl_exn split_map)
     | _ -> maps.seeds <- List.map ~f:(Int.of_string) (Re.Str.split (Re.Str.regexp " ") (List.last_exn split_map))
   in
   maps
 
 let create_maps strings = 
-  List.fold_left strings ~f:(load_map) ~init:
+  List.fold_left strings ~f:(load_maps) ~init:
     {
       seeds = []; 
-      seed_soil = Hashtbl.create (module Int);
-      soil_fertilizer = Hashtbl.create (module Int);
-      fertilizer_water = Hashtbl.create (module Int);
-      water_light = Hashtbl.create (module Int);
-      light_temperature = Hashtbl.create (module Int);
-      temperature_humidity = Hashtbl.create (module Int);
-      humidity_location = Hashtbl.create (module Int);
+      seed_soil = [];
+      soil_fertilizer = [];
+      fertilizer_water = [];
+      water_light = [];
+      light_temperature = [];
+      temperature_humidity = [];
+      humidity_location = [];
     }
 
-let get_hash_value table value = 
-  match (Hashtbl.find table value) with
-  | Some v -> v
-  | None -> value
-  
+let find_range maps source = 
+  let rec loop maps source dest =
+    match maps with
+    | []  -> dest
+    | h :: t -> 
+      if h.min_source <= source && h.max_source >= source then
+        loop t source (source + h.diff)
+      else
+        loop t source dest
+  in
+  let dest = loop maps source 0 in
+  if dest = 0 then source else dest
+
 let find_seed_location maps seed acc =
-  let soil = get_hash_value maps.seed_soil seed in
-  let fertilizer = get_hash_value maps.soil_fertilizer soil in
-  let water = get_hash_value maps.fertilizer_water fertilizer in
-  let light = get_hash_value maps.water_light water in
-  let temperature = get_hash_value maps.light_temperature light in
-  let humidity = get_hash_value maps.temperature_humidity temperature in
-  let location = get_hash_value maps.humidity_location humidity in
+  let soil = find_range maps.seed_soil seed in
+  let fertilizer = find_range maps.soil_fertilizer soil in
+  let water = find_range maps.fertilizer_water fertilizer in
+  let light = find_range maps.water_light water in
+  let temperature = find_range maps.light_temperature light in
+  let humidity = find_range maps.temperature_humidity temperature in
+  let location = find_range maps.humidity_location humidity in
   if acc > location then location else acc
 
 let part1 maps = 
