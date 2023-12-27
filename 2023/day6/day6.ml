@@ -7,11 +7,6 @@ type race = {
   mutable distance: int;
 }
 
-let round_up a b =
-  let result = Float.of_int a /. Float.of_int b in
-  let rounded_result = ceil result in
-  Int.of_float rounded_result
-
 let rec get_numbers string pos numbers =
   match pos with
   | pos when pos >= (String.length string)-1 -> numbers
@@ -48,14 +43,21 @@ let calc_races acc race =
 let part1 races = 
   List.fold_left races ~f:(calc_races) ~init:1
 
-let part2 strings = 1 
+let part2 race = 
+  List.fold_left race ~f:(calc_races) ~init:1
 
 let solve filename = 
-  let races = 
-    In_channel.read_all filename
-    |> parse
-  in
+  let file = In_channel.read_all filename in
+
+  let races = file |> parse in
   part1 races |> printf "part1: %d\n";
+
+  let races = 
+    file 
+    |> String.to_list 
+    |> List.filter ~f:(fun c -> if Char.equal c ' ' then false else true) 
+    |> String.of_list 
+    |> parse in
   part2 races |> printf "part2: %d\n"
 
 let () = solve "input.txt"
