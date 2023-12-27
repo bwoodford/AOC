@@ -27,20 +27,23 @@ let parse string =
   List.map2_exn ~f:(fun t d -> { time=t; distance=d }) times distances
 
 let calc_races acc race = 
-  let rec loop dec distance acc =
-    let diff = race.time - dec in
-    match (diff * dec) with
-    | v when v <= distance -> acc
-    | _ -> loop (dec-1) distance (acc+1)
-  in
-  (*let matches = loop (Int.round_up (race.time / 2) ~to_multiple_of:2) race.distance 0 in*)
-  let matches = loop (round_up race.time 2) race.distance 0 in
-  let return = match matches with
-    | v when v % 2 = 1 -> 2 * v - 1
-    | v -> 2 * v
-  in
-  printf "%d\n" return;
-  acc * return
+  let t = Float.of_int race.time in
+  let d = Float.of_int race.distance in
+  (*
+    t = travel time
+    B = button hold time
+    T = race time
+    D = total distance
+    ------------------
+    t = T-B    
+    D = T*B
+    -----------------
+    Quadratic formula:
+    B^2 - T*B + D = 0
+  *)
+  let p1 = (t +. Float.sqrt(t *. t -. 4. *. d)) /. 2. in
+  let p2 = (t -. Float.sqrt(t *. t -. 4. *. d)) /. 2. in
+  acc * Int.of_float ((Float.round_up p1) -. (Float.round_down p2) -. 1.)
 
 let part1 races = 
   List.fold_left races ~f:(calc_races) ~init:1
@@ -55,4 +58,4 @@ let solve filename =
   part1 races |> printf "part1: %d\n";
   part2 races |> printf "part2: %d\n"
 
-let () = solve "example1.txt"
+let () = solve "input.txt"
