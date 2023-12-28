@@ -7,11 +7,6 @@ type race = {
   mutable distance: int;
 }
 
-let round_up a b =
-  let result = Float.of_int a /. Float.of_int b in
-  let rounded_result = ceil result in
-  Int.of_float rounded_result
-
 let rec get_numbers string pos numbers =
   match pos with
   | pos when pos >= (String.length string)-1 -> numbers
@@ -27,32 +22,42 @@ let parse string =
   List.map2_exn ~f:(fun t d -> { time=t; distance=d }) times distances
 
 let calc_races acc race = 
-  let rec loop dec distance acc =
-    let diff = race.time - dec in
-    match (diff * dec) with
-    | v when v <= distance -> acc
-    | _ -> loop (dec-1) distance (acc+1)
-  in
-  (*let matches = loop (Int.round_up (race.time / 2) ~to_multiple_of:2) race.distance 0 in*)
-  let matches = loop (round_up race.time 2) race.distance 0 in
-  let return = match matches with
-    | v when v % 2 = 1 -> 2 * v - 1
-    | v -> 2 * v
-  in
-  printf "%d\n" return;
-  acc * return
+  let t = Float.of_int race.time in
+  let d = Float.of_int race.distance in
+  (*
+    t = travel time
+    B = button hold time
+    T = race time
+    D = total distance
+    ------------------
+    t = T-B    
+    D = T*B
+    -----------------
+    Quadratic formula:
+    B^2 - T*B + D = 0
+  *)
+  let p1 = (t +. Float.sqrt(t *. t -. 4. *. d)) /. 2. in
+  let p2 = (t -. Float.sqrt(t *. t -. 4. *. d)) /. 2. in
+  acc * Int.of_float ((Float.round_up p1) -. (Float.round_down p2) -. 1.)
 
 let part1 races = 
   List.fold_left races ~f:(calc_races) ~init:1
 
-let part2 strings = 1 
+let part2 race = 
+  List.fold_left race ~f:(calc_races) ~init:1
 
 let solve filename = 
-  let races = 
-    In_channel.read_all filename
-    |> parse
-  in
+  let file = In_channel.read_all filename in
+
+  let races = file |> parse in
   part1 races |> printf "part1: %d\n";
+
+  let races = 
+    file 
+    |> String.to_list 
+    |> List.filter ~f:(fun c -> if Char.equal c ' ' then false else true) 
+    |> String.of_list 
+    |> parse in
   part2 races |> printf "part2: %d\n"
 
-let () = solve "example1.txt"
+let () = solve "input.txt"
