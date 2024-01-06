@@ -2,9 +2,16 @@ open Base
 open Stdio
 open Re
 
+type group = {
+  nonjokers: int;
+  jokers: int;
+  total: int;
+}
+
 type card = {
   hand: string;
   bid: int;
+  groups: int list;
 }
 
 let get_hand_weight hand =
@@ -23,10 +30,6 @@ let get_hand_weight hand =
   | 'K' -> 12
   | 'A' -> 13
   | _ -> failwith "unknown hand character"
-
-let parse string = 
-  let line = Re.Str.split (Re.Str.regexp " ") string in
-  { hand = List.hd_exn line; bid = Int.of_string (List.last_exn line) }
 
 let add_or_set_value table c =
   match Hashtbl.find table c with
@@ -48,6 +51,14 @@ let create_hash_table hand =
 let table_to_sorted_list table =
   let table_list = Hashtbl.fold table ~f:(fun ~key:k ~data:v acc ->  v :: acc) ~init:[] in
   List.sort table_list ~compare:(fun a b -> if a > b then -1 else 1)
+
+let parse string = 
+  let line = Re.Str.split (Re.Str.regexp " ") string in
+  let hand = List.hd_exn line in
+  let bid = Int.of_string (List.last_exn line) in
+  let table = create_hash_table hand in
+  let groups = table_to_sorted_list table in
+  { hand; bid; groups}
 
 let compare_strings a b =
   let rec loop ac bc = 
@@ -78,15 +89,11 @@ let rec compare_lists a b =
   | _ -> failwith "lists must be the same size"
  
 let compare_cards a b =
-  let a_table = create_hash_table a.hand in
-  let b_table = create_hash_table b.hand in
-  match (Hashtbl.length a_table, Hashtbl.length b_table) with
+  match (List.length a.groups, List.length b.groups) with
   | (x, y) when x > y -> -1
   | (x, y) when x < y -> 1
   | _ -> 
-    let a_list = table_to_sorted_list a_table in
-    let b_list = table_to_sorted_list b_table in
-    match compare_lists a_list b_list with
+    match compare_lists a.groups b.groups with
     | 0 -> compare_strings (String.to_list a.hand) (String.to_list b.hand)
     | v -> v
 
@@ -99,14 +106,7 @@ let part1 cards =
   in
   loop sorted 1 0
 
-let part2 cards = 
-  let sorted = List.sort cards ~compare:(compare_cards) in
-  let rec loop cards i acc =
-    match cards with
-    | [] -> acc
-    | h :: t -> loop t (i+1) (acc + i * h.bid)
-  in
-  loop sorted 1 0
+let part2 cards = 1
 
 let solve filename = 
   let cards = 
@@ -122,4 +122,4 @@ let solve filename =
   |> part2
   |> printf "part2: %d\n"
 
-let () = solve "example1.txt"
+let () = solve "input.txt"
