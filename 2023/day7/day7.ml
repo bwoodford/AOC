@@ -9,7 +9,7 @@ type group = {
 }
 
 type card = {
-  hand: string;
+  hand: char list;
   bid: int;
   groups: int list;
 }
@@ -30,6 +30,12 @@ let get_hand_weight hand =
   | 'K' -> 12
   | 'A' -> 13
   | _ -> failwith "unknown hand character"
+
+let sort_order a b =
+  match (a, b) with
+  | (a,b) when a < b -> -1
+  | (a,b) when a > b -> 1
+  | _ -> 0
 
 let add_or_set_value table c =
   match Hashtbl.find table c with
@@ -58,44 +64,47 @@ let parse string =
   let bid = Int.of_string (List.last_exn line) in
   let table = create_hash_table hand in
   let groups = table_to_sorted_list table in
-  { hand; bid; groups}
+  { hand=(String.to_list hand); bid; groups}
 
-let compare_strings a b =
-  let rec loop ac bc = 
-    match (ac, bc) with
+let compare_hands a b =
+  let rec loop a b = 
+    match (a, b) with
     | ([], []) -> 0
-    | (ac_h :: ac_t, bc_h :: bc_t) -> 
-      begin
-      match (get_hand_weight ac_h, get_hand_weight bc_h) with
-      | (a, b) when a < b -> -1
-      | (a, b) when a > b -> 1
-      | (a, b) when a = b -> loop ac_t bc_t
-      | _ -> failwith "lists must be the same size"
-      end
-    | _ -> failwith "lists must be same size"
+    | (_::_, [] | [], _::_) -> failwith "lists must be same length"
+    | (ah :: at, bh :: bt) -> 
+      let hand_sort = 
+        sort_order (get_hand_weight ah) (get_hand_weight bh) in
+      match hand_sort with
+      | 0 -> loop at bt
+      | other -> other
   in
   loop a b
 
 let rec compare_lists a b =
   match (a, b) with
   | ([], [])  -> 0
+  | (_::_, [] | [], _::_) -> failwith "lists must be same length"
   | (ah :: at, bh :: bt) -> 
-    begin
-    match (ah, bh) with
-    | (a,b) when a < b -> -1
-    | (a,b) when a > b -> 1
-    | _ -> compare_lists at bt 
-    end
-  | _ -> failwith "lists must be the same size"
+    let group_sort = sort_order ah bh in
+    match group_sort with
+    | 0 -> compare_lists at bt
+    | other -> other
  
 let compare_cards a b =
-  match (List.length a.groups, List.length b.groups) with
-  | (x, y) when x > y -> -1
-  | (x, y) when x < y -> 1
-  | _ -> 
-    match compare_lists a.groups b.groups with
-    | 0 -> compare_strings (String.to_list a.hand) (String.to_list b.hand)
-    | v -> v
+  let group_sort = 
+    match (List.length a.groups, List.length b.groups) with
+    | (x, y) when x > y -> -1
+    | (x, y) when x < y -> 1
+    | _ -> 0
+    in
+  let list_sort = 
+    match group_sort with
+    | 0 -> compare_lists a.groups b.groups
+    | other -> other
+    in
+  match list_sort with
+  | 0 -> compare_hands a.hand b.hand
+  | other -> other
 
 let part1 cards = 
   let sorted = List.sort cards ~compare:(compare_cards) in
