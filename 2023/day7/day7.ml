@@ -2,17 +2,17 @@ open Base
 open Stdio
 open Re
 
-type group = {
-  nonjokers: int;
-  jokers: int;
-  total: int;
-}
-
 type card = {
   hand: char list;
   bid: int;
   groups: int list;
 }
+
+type state = {
+  jokers: bool;
+}
+
+let current_state = ref { jokers = false }
 
 let get_hand_weight hand =
   match hand with
@@ -25,11 +25,11 @@ let get_hand_weight hand =
   | '8' -> 7
   | '9' -> 8
   | 'T' -> 9
-  | 'J' -> 10
+  | 'J' -> if current_state.contents.jokers then 0 else 10
   | 'Q' -> 11
   | 'K' -> 12
   | 'A' -> 13
-  | _ -> failwith "unknown hand character"
+  | _ -> failwith "Unexpected hand character"
 
 let sort_order a b =
   match (a, b) with
@@ -37,22 +37,14 @@ let sort_order a b =
   | (a,b) when a > b -> 1
   | _ -> 0
 
-let add_or_set_value table c =
-  match Hashtbl.find table c with
-  | Some(v) -> Hashtbl.set table ~key:c ~data:(v + 1)
-  | None -> Hashtbl.add_exn table ~key:c ~data:1
+let add_or_set_value table ch =
+  match Hashtbl.find table ch with
+  | Some(value) -> Hashtbl.set table ~key:ch ~data:(value + 1)
+  | None -> Hashtbl.add_exn table ~key:ch ~data:1
 
 let create_hash_table hand =
   let table = Hashtbl.create (module Char) in
-  let rec loop hand i table =
-    match String.length hand with
-    | l when l = i -> ()
-    | _ -> 
-      add_or_set_value table hand.[i];
-      loop hand (i+1) table
-  in
-  loop hand 0 table;
-  table
+  List.fold hand ~f:(fun table ch -> add_or_set_value table ch; table) ~init:table
 
 let table_to_sorted_list table =
   let table_list = Hashtbl.fold table ~f:(fun ~key:k ~data:v acc ->  v :: acc) ~init:[] in
@@ -60,11 +52,31 @@ let table_to_sorted_list table =
 
 let parse string = 
   let line = Re.Str.split (Re.Str.regexp " ") string in
-  let hand = List.hd_exn line in
+  let hand = String.to_list (List.hd_exn line) in
   let bid = Int.of_string (List.last_exn line) in
+  let jokers = List.fold hand ~f:(fun acc data -> if Char.equal data 'J' then acc + 1 else acc) ~init:0 in
   let table = create_hash_table hand in
-  let groups = table_to_sorted_list table in
-  { hand=(String.to_list hand); bid; groups}
+  if current_state.contents.jokers then
+    Hashtbl.remove table 'J';
+  let sorted_list = table_to_sorted_list table in
+  let full_list = 
+    match (List.length sorted_list) with
+    | 0 -> [0]
+    | other -> sorted_list
+  in
+  let groups = 
+    match current_state.contents.jokers with
+    | false -> full_list
+    | true ->         
+      let head = List.hd_exn full_list in
+      let tail = 
+        match List.tl full_list with
+        | Some(tail) -> tail
+        | None -> []
+      in
+      [(head + jokers)] @ tail
+  in
+  { hand; bid; groups }
 
 let compare_hands a b =
   let rec loop a b = 
@@ -115,19 +127,30 @@ let part1 cards =
   in
   loop sorted 1 0
 
-let part2 cards = 1
+let part2 cards =
+  let sorted = List.sort cards ~compare:(compare_cards) in
+  let rec loop cards i acc =
+    match cards with
+    | [] -> acc
+    | h :: t -> loop t (i+1) (acc + i * h.bid)
+  in
+  loop sorted 1 0
 
 let solve filename = 
-  let cards = 
-    In_channel.read_all filename 
-    |> String.split_lines 
-    |> List.map ~f:(parse) in
 
-  cards
+  let file = 
+    In_channel.read_all filename 
+    |> String.split_lines in
+    
+  file 
+  |> List.map ~f:(parse)
   |> part1 
   |> printf "part1: %d\n";
 
-  cards
+  current_state := {jokers = true};
+
+  file 
+  |> List.map ~f:(parse)
   |> part2
   |> printf "part2: %d\n"
 
